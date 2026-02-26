@@ -6,6 +6,7 @@ const bestScoreEl = document.getElementById("bestScore");
 const messageEl = document.getElementById("message");
 const gameWrap = document.querySelector(".game-wrap");
 const leaderboardListEl = document.getElementById("leaderboardList");
+const touchControlButtons = Array.from(document.querySelectorAll(".touch-controls .dir"));
 
 if (typeof THREE === "undefined") {
   messageEl.textContent = "Three.js ne se charge pas. Lance via un serveur local ou verifie Internet.";
@@ -14,9 +15,8 @@ if (typeof THREE === "undefined") {
 
 const initialSpeedTilesPerSecond = 4;
 const foodSpawnRadius = 15;
-const foodCount = 2;
+const foodCount = 1;
 const enemySnakeCount = 13;
-const humanCount = 4;
 const iaNamePool = [
   "Ari", "Nox", "Lio", "Milo", "Sora", "Tess", "Nina", "Jade", "Omar", "Rex",
   "Iris", "Noa", "Zed", "Luna", "Vik", "Kira", "Eli", "Yara", "Gus", "Mina",
@@ -159,10 +159,8 @@ let previousSnake = [];
 let previousEnemyBodies = [];
 let playerName = "";
 let enemyIdCounter = 0;
-let humans = [];
 let audioCtx;
 let audioEnabled = false;
-let lastFrameTime = performance.now();
 
 const playerGroup = new THREE.Group();
 scene.add(playerGroup);
@@ -170,8 +168,6 @@ let playerMeshes = [];
 
 const enemyGroups = new Map();
 let frogGroups = [];
-const humanGroup = new THREE.Group();
-scene.add(humanGroup);
 
 const cameraTarget = new THREE.Vector3(0, 0, 0);
 
@@ -251,10 +247,6 @@ function playEatSound() {
 
 function playCrashSound() {
   playTone(120, 0.2, "sawtooth", 0.06);
-}
-
-function playStompSound() {
-  playTone(170, 0.11, "square", 0.05);
 }
 
 function randomEnemyDirection() {
@@ -378,32 +370,6 @@ function keepFoodsNearPlayer() {
   }
 }
 
-function placeFrogNear(pos) {
-  if (!foods.some((food) => samePosition(food, pos))) {
-    foods.push({ x: pos.x, y: pos.y });
-    return;
-  }
-
-  for (let radius = 1; radius <= 4; radius += 1) {
-    for (let k = 0; k < 10; k += 1) {
-      const candidate = {
-        x: pos.x + Math.floor(Math.random() * (radius * 2 + 1)) - radius,
-        y: pos.y + Math.floor(Math.random() * (radius * 2 + 1)) - radius,
-      };
-      if (!foods.some((food) => samePosition(food, candidate))) {
-        foods.push(candidate);
-        return;
-      }
-    }
-  }
-}
-
-function decomposeSnakeToFrogs(body) {
-  for (let i = 0; i < body.length; i += 1) {
-    placeFrogNear(body[i]);
-  }
-}
-
 function resetGame() {
   enemyIdCounter = 0;
   snake = [
@@ -426,7 +392,6 @@ function resetGame() {
   for (let i = 0; i < enemySnakeCount; i += 1) {
     enemySnakes.push(createEnemySnake(names[i], enemySnakes));
   }
-  resetHumans();
 
   scoreEl.textContent = score;
   messageEl.textContent = "Mode exploration 3D: " + enemySnakeCount + " serpents actifs.";
@@ -495,64 +460,6 @@ function createFrogMesh() {
   return frog;
 }
 
-function createHuman(name) {
-  const group = new THREE.Group();
-  group.name = name;
-
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3d6fb0, roughness: 0.8 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xf1cfb3, roughness: 0.9 });
-  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.7 });
-
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.52, 6, 12), bodyMat);
-  body.position.y = 0.95;
-  body.castShadow = true;
-  group.add(body);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), skinMat);
-  head.position.y = 1.43;
-  head.castShadow = true;
-  group.add(head);
-
-  const footL = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.08, 0.33), shoeMat);
-  footL.position.set(-0.12, 0.06, 0.03);
-  footL.castShadow = true;
-  group.add(footL);
-
-  const footR = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.08, 0.33), shoeMat);
-  footR.position.set(0.12, 0.06, 0.03);
-  footR.castShadow = true;
-  group.add(footR);
-
-  humanGroup.add(group);
-  return {
-    name,
-    group,
-    position: new THREE.Vector2(0, 0),
-    speed: 1.2 + Math.random() * 0.8,
-    stompCooldown: 0,
-    stepPhase: Math.random() * Math.PI * 2,
-  };
-}
-
-function clearHumans() {
-  while (humanGroup.children.length > 0) {
-    humanGroup.remove(humanGroup.children[0]);
-  }
-  humans = [];
-}
-
-function resetHumans() {
-  clearHumans();
-  const center = snake[0];
-  for (let i = 0; i < humanCount; i += 1) {
-    const human = createHuman("Humain " + (i + 1));
-    human.position.set(
-      center.x + (Math.random() * 2 - 1) * (foodSpawnRadius + 6),
-      center.y + (Math.random() * 2 - 1) * (foodSpawnRadius + 6)
-    );
-    humans.push(human);
-  }
-}
 
 function syncFrogMeshes() {
   while (frogGroups.length < foods.length) {
@@ -623,112 +530,6 @@ function syncPlayer(alpha) {
     playerMeshes[i].scale.set(1, 1, 1);
     if (i === 0) {
       playerMeshes[i].scale.set(1.12, 1.12, 1.12);
-    }
-  }
-}
-
-function getNearestSnakeHead(x, y) {
-  let best = { x: snake[0].x, y: snake[0].y, type: "player", index: -1 };
-  let bestDist = (best.x - x) ** 2 + (best.y - y) ** 2;
-
-  for (let i = 0; i < enemySnakes.length; i += 1) {
-    const head = enemySnakes[i].body[0];
-    const d = (head.x - x) ** 2 + (head.y - y) ** 2;
-    if (d < bestDist) {
-      bestDist = d;
-      best = { x: head.x, y: head.y, type: "enemy", index: i };
-    }
-  }
-
-  return best;
-}
-
-function updateHumans(deltaSec) {
-  for (let i = 0; i < humans.length; i += 1) {
-    const human = humans[i];
-    const target = getNearestSnakeHead(human.position.x, human.position.y);
-    const dx = target.x - human.position.x;
-    const dy = target.y - human.position.y;
-    const len = Math.hypot(dx, dy) || 1;
-
-    const move = Math.min(human.speed * deltaSec, len);
-    human.position.x += (dx / len) * move;
-    human.position.y += (dy / len) * move;
-
-    human.group.position.set(human.position.x, 0, human.position.y);
-    human.group.lookAt(human.position.x + dx, 0.9, human.position.y + dy);
-
-    human.stepPhase += deltaSec * 8;
-    const lift = Math.abs(Math.sin(human.stepPhase)) * 0.07;
-    human.group.children[2].position.y = 0.06 + lift;
-    human.group.children[3].position.y = 0.06 + (0.07 - lift);
-
-    if (human.stompCooldown > 0) {
-      human.stompCooldown -= 1;
-    }
-  }
-}
-
-function trimSnakeFromIndex(body, hitIndex) {
-  if (hitIndex <= 0) {
-    return body;
-  }
-  if (hitIndex >= body.length) {
-    return body;
-  }
-  return body.slice(0, hitIndex);
-}
-
-function applyHumanStomps() {
-  const stompRadiusSq = 0.55 * 0.55;
-
-  for (let h = 0; h < humans.length; h += 1) {
-    const human = humans[h];
-    if (human.stompCooldown > 0) {
-      continue;
-    }
-
-    let stomped = false;
-
-    for (let i = 0; i < snake.length; i += 1) {
-      const part = snake[i];
-      const d = (part.x - human.position.x) ** 2 + (part.y - human.position.y) ** 2;
-      if (d <= stompRadiusSq) {
-        playStompSound();
-        human.stompCooldown = 10;
-        stomped = true;
-        if (i === 0) {
-          stopGame("Un humain a pietine ta tete.");
-          return;
-        }
-        snake = trimSnakeFromIndex(snake, i);
-        messageEl.textContent = "Un humain t'a pietine: queue reduite.";
-        break;
-      }
-    }
-
-    if (stomped || !isRunning) {
-      continue;
-    }
-
-    for (let e = 0; e < enemySnakes.length && !stomped; e += 1) {
-      const enemy = enemySnakes[e];
-      for (let i = 0; i < enemy.body.length; i += 1) {
-        const part = enemy.body[i];
-        const d = (part.x - human.position.x) ** 2 + (part.y - human.position.y) ** 2;
-        if (d <= stompRadiusSq) {
-          playStompSound();
-          human.stompCooldown = 10;
-          stomped = true;
-          if (i === 0) {
-            decomposeSnakeToFrogs(enemy.body);
-            enemySnakes.splice(e, 1);
-          } else {
-            enemy.body = trimSnakeFromIndex(enemy.body, i);
-          }
-          break;
-        }
-      }
     }
   }
 }
@@ -843,15 +644,11 @@ function resolveEnemyBattles() {
       }
 
       if (first.body.length > second.body.length) {
-        decomposeSnakeToFrogs(second.body);
         enemySnakes[j] = null;
       } else if (second.body.length > first.body.length) {
-        decomposeSnakeToFrogs(first.body);
         enemySnakes[i] = null;
         break;
       } else {
-        decomposeSnakeToFrogs(first.body);
-        decomposeSnakeToFrogs(second.body);
         enemySnakes[i] = null;
         enemySnakes[j] = null;
         break;
@@ -875,8 +672,7 @@ function handlePlayerEnemyCollision() {
     }
 
     if (snake.length > enemy.body.length) {
-      decomposeSnakeToFrogs(enemy.body);
-      messageEl.textContent = enemy.name + " est decompose en grenouilles (" + enemy.body.length + ").";
+      messageEl.textContent = enemy.name + " a ete mange et disparait.";
       continue;
     }
 
@@ -935,12 +731,6 @@ function tick() {
   enemySnakes.forEach((enemy) => {
     moveEnemy(enemy);
   });
-
-  applyHumanStomps();
-  if (!isRunning) {
-    updateLeaderboard();
-    return;
-  }
 
   resolveEnemyBattles();
   handlePlayerEnemyCollision();
@@ -1010,11 +800,8 @@ async function toggleFullscreen() {
 }
 
 function renderFrame(now) {
-  const deltaSec = Math.min(0.05, Math.max(0, (now - lastFrameTime) / 1000));
-  lastFrameTime = now;
   const alpha = isRunning ? Math.min(1, (now - lastLogicUpdateTime) / tickIntervalMs) : 1;
 
-  updateHumans(deltaSec);
   updateCamera(alpha);
   syncPlayer(alpha);
   syncEnemyGroups(alpha);
@@ -1024,29 +811,49 @@ function renderFrame(now) {
   requestAnimationFrame(renderFrame);
 }
 
-document.addEventListener("keydown", (event) => {
-  const key = event.key.toLowerCase();
-
-  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "z", "q", "s", "d"].includes(key)) {
-    event.preventDefault();
-  }
-
+function requestDirection(dir) {
   if (!isRunning) {
     return;
   }
-
-  if ((key === "arrowup" || key === "z") && direction.y !== 1) {
+  if (dir === "up" && direction.y !== 1) {
     nextDirection = { x: 0, y: -1 };
   }
-  if ((key === "arrowdown" || key === "s") && direction.y !== -1) {
+  if (dir === "down" && direction.y !== -1) {
     nextDirection = { x: 0, y: 1 };
   }
-  if ((key === "arrowleft" || key === "q") && direction.x !== 1) {
+  if (dir === "left" && direction.x !== 1) {
     nextDirection = { x: -1, y: 0 };
   }
-  if ((key === "arrowright" || key === "d") && direction.x !== -1) {
+  if (dir === "right" && direction.x !== -1) {
     nextDirection = { x: 1, y: 0 };
   }
+}
+
+document.addEventListener("keydown", (event) => {
+  const key = event.key.toLowerCase();
+  const map = {
+    arrowup: "up",
+    z: "up",
+    arrowdown: "down",
+    s: "down",
+    arrowleft: "left",
+    q: "left",
+    arrowright: "right",
+    d: "right",
+  };
+
+  if (!map[key]) {
+    return;
+  }
+  event.preventDefault();
+  requestDirection(map[key]);
+});
+
+touchControlButtons.forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    requestDirection(button.dataset.dir);
+  });
 });
 
 startBtn.addEventListener("click", startGame);
