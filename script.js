@@ -60,42 +60,81 @@ sun.shadow.camera.bottom = -70;
 scene.add(sun);
 
 function createGroundTexture() {
-  const size = 256;
+  const size = 512;
   const cvs = document.createElement("canvas");
   cvs.width = size;
   cvs.height = size;
   const g = cvs.getContext("2d");
 
-  g.fillStyle = "#6f8350";
+  const baseGradient = g.createLinearGradient(0, 0, size, size);
+  baseGradient.addColorStop(0, "#667f49");
+  baseGradient.addColorStop(0.5, "#5d7742");
+  baseGradient.addColorStop(1, "#556d3d");
+  g.fillStyle = baseGradient;
   g.fillRect(0, 0, size, size);
 
-  for (let i = 0; i < 1700; i += 1) {
+  for (let i = 0; i < 5000; i += 1) {
     const x = Math.floor(Math.random() * size);
     const y = Math.floor(Math.random() * size);
     const r = Math.random();
-    g.fillStyle = r > 0.8 ? "rgba(95,74,47,0.22)" : "rgba(120,150,86,0.22)";
-    g.fillRect(x, y, 2, 2);
+    g.fillStyle = r > 0.82 ? "rgba(88,66,38,0.22)" : "rgba(136,167,95,0.2)";
+    g.fillRect(x, y, 2 + Math.floor(Math.random() * 2), 2 + Math.floor(Math.random() * 2));
+  }
+
+  // Dirt patches.
+  for (let i = 0; i < 55; i += 1) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const rx = 16 + Math.random() * 44;
+    const ry = 10 + Math.random() * 32;
+    g.save();
+    g.translate(x, y);
+    g.rotate(Math.random() * Math.PI);
+    g.fillStyle = "rgba(102,79,48,0.14)";
+    g.beginPath();
+    g.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+
+  // Subtle paths.
+  for (let i = 0; i < 7; i += 1) {
+    const y = Math.random() * size;
+    g.strokeStyle = "rgba(88,70,44,0.12)";
+    g.lineWidth = 6 + Math.random() * 8;
+    g.beginPath();
+    g.moveTo(0, y);
+    for (let x = 40; x <= size; x += 40) {
+      g.quadraticCurveTo(
+        x - 20,
+        y + (Math.random() * 30 - 15),
+        x,
+        y + (Math.random() * 30 - 15)
+      );
+    }
+    g.stroke();
   }
 
   const tex = new THREE.CanvasTexture(cvs);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(60, 60);
+  tex.repeat.set(32, 32);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
 
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(4000, 4000, 1, 1),
-  new THREE.MeshStandardMaterial({ color: 0x687b44, roughness: 1, map: createGroundTexture() })
+  new THREE.MeshStandardMaterial({
+    color: 0x6b7d4a,
+    roughness: 0.97,
+    metalness: 0.02,
+    map: createGroundTexture(),
+  })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
-
-const grid = new THREE.GridHelper(4000, 400, 0x77895c, 0x77895c);
-grid.material.transparent = true;
-grid.material.opacity = 0.07;
-scene.add(grid);
 
 function createSnakeStripeTexture(main, stripe) {
   const cvs = document.createElement("canvas");
